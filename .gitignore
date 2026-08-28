@@ -184,3 +184,10 @@ data/raw/
 
 # Données historiques brutes
 data/raw_historique/
+
+# Secrets Streamlit
+.streamlit/secrets.toml
+
+# Fichiers temporaires
+*.tmp
+*.bak
