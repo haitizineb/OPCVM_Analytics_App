@@ -179,8 +179,8 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
-# Données brutes ASFIM
+# Données brutes téléchargées automatiquement
 data/raw/
 
-# Données brutes / historiques
+# Données historiques brutes
 data/raw_historique/
