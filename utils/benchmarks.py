@@ -4,6 +4,8 @@ from io import BytesIO, StringIO
 import numpy as np
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 # =====================================================
@@ -44,61 +46,85 @@ def convertir_date_fr(serie):
 # =====================================================
 
 def telecharger_monia():
-
-    url = (
-        "https://www.bkam.ma/export/blockcsv/"
-        "566622/30551c1667f5f2004fb0019220d41795/"
-        "4734c7b73113d8d72895a19090974066"
-        "?block=4734c7b73113d8d72895a19090974066"
-    )
-
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
-    r = requests.get(
-        url,
-        headers=headers,
-        timeout=30,
-    )
-
-    r.raise_for_status()
-
-    df = pd.read_csv(
-        StringIO(r.text),
-        sep=";",
-        skiprows=2,
-    )
-
-    df.columns = (
-        df.columns
-        .str.replace('"', "", regex=False)
-        .str.strip()
-    )
-
-    df["Indice MONIA"] = (
-        df["Indice MONIA"]
-        .astype(str)
-        .str.replace("%", "", regex=False)
-        .str.replace(",", ".", regex=False)
-        .astype(float)
-    )
-
-    df["Date de référence"] = pd.to_datetime(
-        df["Date de référence"],
-        dayfirst=True,
-    )
-
-    return (
-        df.rename(
-            columns={
-                "Date de référence": "Date_Reference",
-                "Indice MONIA": "MONIA",
-            }
+    """
+    Télécharge les données MONIA depuis Bank al-Maghrib.
+    Retourne un DataFrame vide en cas d'erreur pour permettre à l'app de continuer.
+    """
+    try:
+        url = (
+            "https://www.bkam.ma/export/blockcsv/"
+            "566622/30551c1667f5f2004fb0019220d41795/"
+            "4734c7b73113d8d72895a19090974066"
+            "?block=4734c7b73113d8d72895a19090974066"
         )
-        .sort_values("Date_Reference")
-        .reset_index(drop=True)
-    )
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "text/csv",
+            "Referer": "https://www.bkam.ma/",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+
+        # Create session with retry logic
+        session = requests.Session()
+        retry = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[403, 429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
+
+        r = session.get(
+            url,
+            headers=headers,
+            timeout=30,
+        )
+
+        r.raise_for_status()
+
+        df = pd.read_csv(
+            StringIO(r.text),
+            sep=";",
+            skiprows=2,
+        )
+
+        df.columns = (
+            df.columns
+            .str.replace('"', "", regex=False)
+            .str.strip()
+        )
+
+        df["Indice MONIA"] = (
+            df["Indice MONIA"]
+            .astype(str)
+            .str.replace("%", "", regex=False)
+            .str.replace(",", ".", regex=False)
+            .astype(float)
+        )
+
+        df["Date de référence"] = pd.to_datetime(
+            df["Date de référence"],
+            dayfirst=True,
+        )
+
+        return (
+            df.rename(
+                columns={
+                    "Date de référence": "Date_Reference",
+                    "Indice MONIA": "MONIA",
+                }
+            )
+            .sort_values("Date_Reference")
+            .reset_index(drop=True)
+        )
+
+    except Exception as e:
+        print(f"⚠️  Erreur lors du téléchargement des données MONIA: {e}")
+        print("   Continuant sans données MONIA...")
+        # Retourner un DataFrame vide avec les colonnes attendues
+        return pd.DataFrame(columns=["Date_Reference", "MONIA"])
 
 
 # =====================================================
@@ -106,61 +132,85 @@ def telecharger_monia():
 # =====================================================
 
 def telecharger_tmp():
-
-    url = (
-        "https://www.bkam.ma/export/blockcsv/"
-        "973/d3239ec6d067cd9381f137545720a6c9/"
-        "ae14ce1a4ee29af53d5645f51bf0e97d"
-        "?block=ae14ce1a4ee29af53d5645f51bf0e97d"
-    )
-
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
-    r = requests.get(
-        url,
-        headers=headers,
-        timeout=30,
-    )
-
-    r.raise_for_status()
-
-    df = pd.read_csv(
-        StringIO(r.text),
-        sep=";",
-        skiprows=2,
-    )
-
-    df.columns = (
-        df.columns
-        .str.replace('"', "", regex=False)
-        .str.strip()
-    )
-
-    df["Taux Moyen Pondéré"] = (
-        df["Taux Moyen Pondéré"]
-        .astype(str)
-        .str.replace("%", "", regex=False)
-        .str.replace(",", ".", regex=False)
-        .astype(float)
-    )
-
-    df["Date"] = pd.to_datetime(
-        df["Date"],
-        dayfirst=True,
-    )
-
-    return (
-        df.rename(
-            columns={
-                "Date": "Date_Reference",
-                "Taux Moyen Pondéré": "TMP",
-            }
+    """
+    Télécharge les données TMP (Taux Moyen Pondéré) depuis Bank al-Maghrib.
+    Retourne un DataFrame vide en cas d'erreur pour permettre à l'app de continuer.
+    """
+    try:
+        url = (
+            "https://www.bkam.ma/export/blockcsv/"
+            "973/d3239ec6d067cd9381f137545720a6c9/"
+            "ae14ce1a4ee29af53d5645f51bf0e97d"
+            "?block=ae14ce1a4ee29af53d5645f51bf0e97d"
         )
-        .sort_values("Date_Reference")
-        .reset_index(drop=True)
-    )
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "text/csv",
+            "Referer": "https://www.bkam.ma/",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+
+        # Create session with retry logic
+        session = requests.Session()
+        retry = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[403, 429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
+
+        r = session.get(
+            url,
+            headers=headers,
+            timeout=30,
+        )
+
+        r.raise_for_status()
+
+        df = pd.read_csv(
+            StringIO(r.text),
+            sep=";",
+            skiprows=2,
+        )
+
+        df.columns = (
+            df.columns
+            .str.replace('"', "", regex=False)
+            .str.strip()
+        )
+
+        df["Taux Moyen Pondéré"] = (
+            df["Taux Moyen Pondéré"]
+            .astype(str)
+            .str.replace("%", "", regex=False)
+            .str.replace(",", ".", regex=False)
+            .astype(float)
+        )
+
+        df["Date"] = pd.to_datetime(
+            df["Date"],
+            dayfirst=True,
+        )
+
+        return (
+            df.rename(
+                columns={
+                    "Date": "Date_Reference",
+                    "Taux Moyen Pondéré": "TMP",
+                }
+            )
+            .sort_values("Date_Reference")
+            .reset_index(drop=True)
+        )
+
+    except Exception as e:
+        print(f"⚠️  Erreur lors du téléchargement des données TMP: {e}")
+        print("   Continuant sans données TMP...")
+        # Retourner un DataFrame vide avec les colonnes attendues
+        return pd.DataFrame(columns=["Date_Reference", "TMP"])
 
 
 # =====================================================
@@ -171,57 +221,84 @@ def telecharger_indice_bmce(
     id_indice,
     nom_colonne,
 ):
+    """
+    Télécharge les indices BMCE depuis BMCE Capital Bourse.
+    Retourne un DataFrame vide en cas d'erreur pour permettre à l'app de continuer.
+    """
+    try:
+        url = (
+            "https://www.bmcecapitalbourse.com/"
+            "bkbbourse/details/hiku/export.xls"
+        )
 
-    url = (
-        "https://www.bmcecapitalbourse.com/"
-        "bkbbourse/details/hiku/export.xls"
-    )
+        params = {
+            "id": id_indice,
+            "from": "01-01-2000",
+            "to": pd.Timestamp.today().strftime("%d-%m-%Y"),
+            "raw": "true",
+        }
 
-    params = {
-        "id": id_indice,
-        "from": "01-01-2000",
-        "to": pd.Timestamp.today().strftime("%d-%m-%Y"),
-        "raw": "true",
-    }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/vnd.ms-excel",
+            "Referer": "https://www.bmcecapitalbourse.com/",
+        }
 
-    r = requests.get(
-        url,
-        params=params,
-        headers={"User-Agent": "Mozilla/5.0"},
-        timeout=30,
-    )
+        # Create session with retry logic
+        session = requests.Session()
+        retry = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[403, 429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
 
-    r.raise_for_status()
+        r = session.get(
+            url,
+            params=params,
+            headers=headers,
+            timeout=30,
+        )
 
-    df = pd.read_excel(
-        BytesIO(r.content)
-    )
+        r.raise_for_status()
 
-    df.columns = (
-        df.columns
-        .str.strip()
-        .str.replace("\n", " ")
-    )
+        df = pd.read_excel(
+            BytesIO(r.content)
+        )
 
-    df["Date"] = convertir_date_fr(
-        df["Date"]
-    )
+        df.columns = (
+            df.columns
+            .str.strip()
+            .str.replace("\n", " ")
+        )
 
-    df["Dernier"] = pd.to_numeric(
-        df["Dernier"],
-        errors="coerce",
-    )
+        df["Date"] = convertir_date_fr(
+            df["Date"]
+        )
 
-    return (
-        df.rename(
-            columns={
-                "Dernier": nom_colonne
-            }
-        )[["Date", nom_colonne]]
-        .dropna()
-        .sort_values("Date")
-        .reset_index(drop=True)
-    )
+        df["Dernier"] = pd.to_numeric(
+            df["Dernier"],
+            errors="coerce",
+        )
+
+        return (
+            df.rename(
+                columns={
+                    "Dernier": nom_colonne
+                }
+            )[["Date", nom_colonne]]
+            .dropna()
+            .sort_values("Date")
+            .reset_index(drop=True)
+        )
+
+    except Exception as e:
+        print(f"⚠️  Erreur lors du téléchargement de l'indice BMCE ({nom_colonne}): {e}")
+        print("   Continuant sans ces données...")
+        # Retourner un DataFrame vide avec les colonnes attendues
+        return pd.DataFrame(columns=["Date", nom_colonne])
 
 
 # =====================================================
